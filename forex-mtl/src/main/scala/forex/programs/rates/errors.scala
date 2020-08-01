@@ -11,5 +11,7 @@ object errors {
 
   def toProgramError(error: RatesServiceError): Error = error match {
     case RatesServiceError.OneFrameLookupFailed(msg) => Error.RateLookupFailed(msg)
+    case RatesServiceError.ResponseDecodeFailed(msg) => Error.RateLookupFailed(msg)
+    case RatesServiceError.RequestDecodeFailed(msg)  => Error.RateLookupFailed(msg)
   }
 }

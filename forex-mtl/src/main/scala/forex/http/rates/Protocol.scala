@@ -19,7 +19,7 @@ object Protocol {
       from: Currency,
       to: Currency,
       price: Price,
-      timestamp: Timestamp
+      time_stamp: Timestamp
   )
 
   implicit val currencyEncoder: Encoder[Currency] =
@@ -33,5 +33,8 @@ object Protocol {
 
   implicit val responseEncoder: Encoder[GetApiResponse] =
     deriveEncoder[GetApiResponse]
+
+  implicit val responseDecoder: Decoder[GetApiResponse] =
+    deriveDecoder[GetApiResponse]
 
 }

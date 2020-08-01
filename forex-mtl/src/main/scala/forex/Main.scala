@@ -5,6 +5,9 @@ import cats.syntax.functor._
 import forex.config._
 import fs2.Stream
 import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.client.blaze.BlazeClientBuilder
+
+import scala.concurrent.ExecutionContext.global
 
 object Main extends IOApp {
 
@@ -14,6 +17,8 @@ object Main extends IOApp {
 }
 
 class Application[F[_]: ConcurrentEffect: Timer] {
+
+  implicit val client: BlazeClientBuilder[F] = BlazeClientBuilder[F](global)
 
   def stream: Stream[F, Unit] =
     for {
