@@ -8,12 +8,15 @@ import forex.programs._
 import org.http4s._
 import org.http4s.implicits._
 import org.http4s.server.middleware.{ AutoSlash, Timeout }
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.client.Client
 
-class Module[F[_]: Concurrent: Timer: BlazeClientBuilder](config: ApplicationConfig) {
+class Module[F[_]: Concurrent: Timer](
+  config: ApplicationConfig,
+  client: Client[F]
+) {
 
   // private val ratesService: RatesService[F] = RatesServices.dummy[F]
-  private val ratesService: RatesService[F] = RatesServices.docker[F]
+  private val ratesService: RatesService[F] = RatesServices.docker[F](client)
 
   private val ratesProgram: RatesProgram[F] = RatesProgram[F](ratesService)
 

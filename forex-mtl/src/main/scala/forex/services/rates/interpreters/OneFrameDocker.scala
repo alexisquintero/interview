@@ -5,22 +5,19 @@ import forex.domain.Rate
 import forex.domain.Currency.show
 import forex.services.rates.errors._
 import forex.http.rates.Protocol._
-import forex.http._
 
-import org.http4s.client.blaze.BlazeClientBuilder
-import org.http4s.{ Request, Headers, Header, Uri }
-import cats.Applicative
-import cats.effect.Concurrent
-import cats.data.EitherT
-import cats.syntax.functor._
-import cats.syntax.either._
-import cats.syntax.show._
+import cats._
+import cats.data._
+import cats.implicits._
+import org.http4s._
+import org.http4s.circe._
+import org.http4s.client.Client
+import cats.effect.Sync
 import io.circe.Json
 
-class OneFrameDocker[F[_]: Applicative: BlazeClientBuilder: Concurrent] extends Algebra[F] {
+class OneFrameDocker[F[_]: Applicative: Sync](client: Client[F]) extends Algebra[F] {
 
-  override def get(pair: Rate.Pair): F[Error Either Rate] =
-    implicitly[BlazeClientBuilder[F]].resource.use { client =>
+  override def get(pair: Rate.Pair): F[Error Either Rate] = {
 
       val headers: Headers = Headers(List(Header("token", "10dc303535874aeccc86a8251e6992f5")))
 
@@ -45,7 +42,6 @@ class OneFrameDocker[F[_]: Applicative: BlazeClientBuilder: Concurrent] extends 
         req <- EitherT.fromEither[F](request)
         resp <- EitherT(requestToResponse(req))
       } yield resp).value
-
-    }
+  }
 
 }

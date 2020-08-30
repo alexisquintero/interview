@@ -8,11 +8,14 @@ import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.client.blaze.BlazeClientBuilder
 
 import scala.concurrent.ExecutionContext.global
+import org.http4s.client.Client
 
 object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] =
-    new Application[IO].stream.compile.drain.as(ExitCode.Success)
+    BlazeClientBuilder[IO](global).resource.use { client =>
+      new Application[IO].stream(client).compile.drain.as(ExitCode.Success)
+    }
 
 }
 
@@ -20,10 +23,10 @@ class Application[F[_]: ConcurrentEffect: Timer] {
 
   implicit val client: BlazeClientBuilder[F] = BlazeClientBuilder[F](global)
 
-  def stream: Stream[F, Unit] =
+  def stream(client: Client[F]): Stream[F, Unit] =
     for {
       config <- Config.stream("app")
-      module = new Module[F](config)
+      module = new Module[F](config, client)
       _ <- BlazeServerBuilder[F]
             .bindHttp(config.http.port, config.http.host)
             .withHttpApp(module.httpApp)
