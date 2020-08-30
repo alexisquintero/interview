@@ -8,15 +8,15 @@ import forex.programs._
 import org.http4s._
 import org.http4s.implicits._
 import org.http4s.server.middleware.{ AutoSlash, Timeout }
-import org.http4s.client.Client
+import forex.cache.Algebra
 
 class Module[F[_]: Concurrent: Timer](
   config: ApplicationConfig,
-  client: Client[F]
+  cache: Algebra.RateCache[F]
 ) {
 
   // private val ratesService: RatesService[F] = RatesServices.dummy[F]
-  private val ratesService: RatesService[F] = RatesServices.docker[F](client)
+  private val ratesService: RatesService[F] = RatesServices.docker[F](cache)
 
   private val ratesProgram: RatesProgram[F] = RatesProgram[F](ratesService)
 

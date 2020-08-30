@@ -8,25 +8,31 @@ import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.client.blaze.BlazeClientBuilder
 
 import scala.concurrent.ExecutionContext.global
-import org.http4s.client.Client
+import cats.effect.concurrent.Semaphore
+import forex.cache.{ Algebra, CacheProgram }
 
 object Main extends IOApp {
 
+  // TODO: Better resource creation
+  // TODO: Error handling
+  // TODO: Test
   override def run(args: List[String]): IO[ExitCode] =
     BlazeClientBuilder[IO](global).resource.use { client =>
-      new Application[IO].stream(client).compile.drain.as(ExitCode.Success)
+      Semaphore[IO](1).flatMap { sem =>
+        CacheProgram(client, sem).flatMap { cache =>
+          new Application[IO].stream(cache).compile.drain.as(ExitCode.Success)
+        }
+      }
     }
 
 }
 
 class Application[F[_]: ConcurrentEffect: Timer] {
 
-  implicit val client: BlazeClientBuilder[F] = BlazeClientBuilder[F](global)
-
-  def stream(client: Client[F]): Stream[F, Unit] =
+  def stream(cache: Algebra.RateCache[F]): Stream[F, Unit] =
     for {
       config <- Config.stream("app")
-      module = new Module[F](config, client)
+      module = new Module[F](config, cache)
       _ <- BlazeServerBuilder[F]
             .bindHttp(config.http.port, config.http.host)
             .withHttpApp(module.httpApp)
