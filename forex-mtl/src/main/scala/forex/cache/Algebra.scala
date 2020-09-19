@@ -10,5 +10,3 @@ trait Algebra[F[_], K, V] {
 object Algebra {
   type RateCache[F[_]] = Algebra[F, Rate.Pair, Rate]
 }
-
-

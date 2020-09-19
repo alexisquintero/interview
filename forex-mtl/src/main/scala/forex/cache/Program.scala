@@ -86,7 +86,7 @@ class CacheProgram[F[_]: Sync](
 
 object CacheProgram {
   def apply[F[_]: Sync](client: Client[F], semaphore: Semaphore[F]): F[Algebra.RateCache[F]] =
-  Ref.of[F, Map[Rate.Pair, Rate]](Map.empty).map { state =>
-    new CacheProgram[F](client, semaphore, state)
+    Ref.of[F, Map[Rate.Pair, Rate]](Map.empty).map { state =>
+      new CacheProgram[F](client, semaphore, state)
   }
 }
