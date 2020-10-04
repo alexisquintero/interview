@@ -16,7 +16,8 @@ import org.http4s.client.Client
 import java.time.Instant
 
 class CacheProgram[F[_]: Sync](
-  client: Client[F],
+  msToVoid: Long,
+  fetcher: Request[F] => F[Error Either List[Rate]],
   semaphore: Semaphore[F],
   state: Ref[F, Map[Rate.Pair, Rate]]
 ) extends Algebra.RateCache[F] {
@@ -34,19 +35,10 @@ class CacheProgram[F[_]: Sync](
         { error: ParseFailure => Error.CacheRequestDecodeFailed(error.message) },
         { uri: Uri => Request(uri = uri, headers = headers) })
 
-    def requestToResponse(req: Request[F]): F[Error Either List[Rate]] =
-      client
-        .expect[List[GetApiResponse]](req)
-        .attempt
-        .map(
-          _.bimap(
-          { t: Throwable => Error.CacheFailedFetch(t.getMessage) },
-          { la: List[GetApiResponse] => la.map(a => Rate(Rate.Pair(a.from, a.to), a.price, a.time_stamp)) }))
-
     val makeUpdate: EitherT[F, Error, Unit] =
       for {
         req  <- EitherT.fromEither[F](request)
-        resp <- EitherT(requestToResponse(req))
+        resp <- EitherT(fetcher(req))
         respMap = resp.foldLeft(Map.empty[Rate.Pair, Rate])((acc, cur) => acc + (cur.pair -> cur))
         _    <- EitherT.liftF[F, Error, Unit](state.update(cur => cur ++ respMap))
       } yield ()
@@ -67,7 +59,7 @@ class CacheProgram[F[_]: Sync](
     }
 
   def checkTimestamp(rate: Rate): Boolean =
-    rate.timestamp.value.toInstant.compareTo(Instant.now.minusSeconds(5 * 60L)) < 0
+    rate.timestamp.value.toInstant.compareTo(Instant.now.minusSeconds(msToVoid)) < 0
 
   def updateAndGet(k: Rate.Pair): F[Error Either Rate] =
     update(k) *> get1(k).map(valueOptToErr)
@@ -85,8 +77,33 @@ class CacheProgram[F[_]: Sync](
 }
 
 object CacheProgram {
-  def apply[F[_]: Sync](client: Client[F], semaphore: Semaphore[F]): F[Algebra.RateCache[F]] =
+
+  def fetcher[F[_]: Sync](client: Client[F])(request: Request[F]): F[Error Either List[Rate]] =
+    client
+      .expect[List[GetApiResponse]](request)
+      .attempt
+      .map(
+        _.bimap(
+        { t: Throwable => Error.CacheFailedFetch(t.getMessage) },
+        { la: List[GetApiResponse] => la.map(a => Rate(Rate.Pair(a.from, a.to), a.price, a.time_stamp)) }))
+
+  def apply[F[_]: Sync](
+    msToVoid: Long,
+    client: Client[F],
+    semaphore: Semaphore[F]
+  ): F[Algebra.RateCache[F]] = {
     Ref.of[F, Map[Rate.Pair, Rate]](Map.empty).map { state =>
-      new CacheProgram[F](client, semaphore, state)
+      new CacheProgram[F](msToVoid, fetcher[F](client), semaphore, state)
+    }
+  }
+
+  def test[F[_]: Sync](
+    msToVoid: Long,
+    fetcher: Request[F] => F[Error Either List[Rate]],
+    semaphore: Semaphore[F]
+  ): F[Algebra.RateCache[F]] = {
+    Ref.of[F, Map[Rate.Pair, Rate]](Map.empty).map { state =>
+      new CacheProgram[F](msToVoid, fetcher, semaphore, state)
+    }
   }
 }
